@@ -15,6 +15,6 @@
   \item{HL }{Data frame with time, water level and reference level of the extrema. Column HL denotes H(igh) (=maximum) or L(ow) (=minimum) water levels}
   \item{h }{Original water level data frame with additional columns HL, denoting H(igh) or L(ow) water phase and N(umber) of tidal cycle.}
 }
-\author{Tom Cox <tom.cox@ua.ac.be>}
+\author{Tom Cox <tom.cox@untwerpbe>}
 \keyword{utilities}
 

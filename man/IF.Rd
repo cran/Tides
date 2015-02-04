@@ -11,6 +11,6 @@
 \value{
   Inundation frequence [\%] at reference level h0
 }
-\author{Tom Cox <tom.cox@ua.ac.be>}
+\author{Tom Cox <tom.cox@uantwerp.be>}
 \keyword{utilities}
 

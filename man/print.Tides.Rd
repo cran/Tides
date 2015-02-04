@@ -11,6 +11,6 @@
 \details{
   Print inundation frequency, average inundation height, average inundation time, average dry time and number of tidal cycles in time series.
 }
-\author{Tom Cox <tom.cox@ua.ac.be>}
+\author{Tom Cox <tom.cox@uantwerp.be>}
 \keyword{utilities}
 

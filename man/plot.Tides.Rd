@@ -12,6 +12,6 @@
 \details{
   Produces a very simple plot of a Tides object, containing water levels, calculated high and low water, and reference level of a Tides-object. Useful for diagnostic purposes.
 }
-\author{Tom Cox <tom.cox@ua.ac.be>}
+\author{Tom Cox <tom.cox@uantwerp.be>}
 \keyword{utilities}
 

@@ -25,7 +25,7 @@ if (!is.null(gaps)) 	{gaps$N <- tij$N[match(gaps$t1,tij$time)]	#N counts the tid
 
 ###
 #Calculate inundation times and dry times
-ITDT <- IT(tij[c("time","h")],h0=tij$h0,dtMax=dtMax)
+ITDT <- IT(tij[c("time","h")],h0=tij$h0,dtMax=dtMax, h0marg=hoffset)
 ITs <- ITDT$IT
 if (!is.null(ITs)) ITs$N <- tij$N[match(ITs$t1,tij$time)]
 #When gaps are present in the time series, remove all broken cycles +- 1 cycle number to be sure, i.e. in which a gap of data exists
@@ -49,12 +49,38 @@ return(TideChars)
 }
 
 print.Tides <- function(x,...){
-  if (is.null(x$DTs$dt)) cat("Inundation frequency: 100% \n") else cat("Inundation frequency:		", x$IF, " (",x$IF*x$Ncycles/100,"inundations during time span)","\n")
-  if (is.null(x$DTs$dt)) cat ("WARNING not reliable (IF = 100%). Average inundation height: ", mean(x$HL$h-x$HL$h0),"\n") else cat("Average inundation height:	", mean(x$HL$h-x$HL$h0),"\n")
-  if (is.null(x$ITs$dt)) cat ("Average inundation time: 	Site never inundated \n") else cat("Inundation time. Average:", mean(x$ITs$dt),x$Tunit,", Maximum: ",max(x$ITs$dt),x$Tunit,"\n")
-  if (is.null(x$DTs$dt)) cat ("Average dry time:	Site never falls dry \n") else  cat("Dry time. Average:", mean(x$DTs$dt),x$Tunit,", Maximum",max(x$DTs$dt),x$Tunit,"\n")
-  cat("Time span:			", x$Ncycles, "average (tidal) cycles","\n")
-if (is.null(x$gaps)) cat("There were no gaps in the time series","\n") else cat("The time series consists of",max(x$gaps$n),"continuous sub-series","\n")
+  if (is.null(x$DTs$dt)) {cat("Inundation frequency: 100% \n") 
+	} else {
+	cat("Inundation frequency: ", x$IF, "\n")
+	cat("Inundations during time span: ", x$IF*x$Ncycles/100, "\n")}
+
+  if (is.null(x$DTs$dt)) {cat ("WARNING not reliable (IF = 100%). Average inundation height: ", mean(x$HL$h-x$HL$h0),"\n") 
+	} else {
+	cat("Average inundation height: ", mean(x$HL$h[x$HL$HL=="H"]-x$HL$h0[x$HL$HL=="H"]),"\n")
+	cat("Average inundation height (per cycle): ", sum(x$HL$h[x$HL$HL=="H"]-x$HL$h0[x$HL$HL=="H"])/x$Ncycles,"\n")}
+
+  if (is.null(x$ITs$dt)) {cat ("Average inundation time: Site never inundated \n") 
+	} else {
+	cat("Average inundation time: ", mean(x$ITs$dt), x$Tunit, "\n") 
+	cat("Average inundation time (per cycle): ", sum(x$ITs$dt)/x$Ncycles, x$Tunit, "\n") 
+	cat("Maximal inundation time: ", max(x$ITs$dt), x$Tunit, "\n")
+	}
+
+
+  if (is.null(x$DTs$dt)) {cat ("Average dry time: Site never falls dry \n") 
+	} else {  
+	cat("Average dry time: ", mean(x$DTs$dt), x$Tunit, "\n")
+	cat("Average dry time (per cycle): ", sum(x$DTs$dt)/x$Ncycles, x$Tunit, "\n")
+	cat("Maximal dry time: ", max(x$DTs$dt), x$Tunit, "\n")}
+  
+  cat("Average high water: ", mean(x$HL$h[x$HL$HL=="H"]),"\n")
+  cat("Average low water: ", mean(x$HL$h[x$HL$HL=="L"]),"\n")
+  
+  cat("Time span: ", x$Ncycles, "average (tidal) cycles","\n")
+
+  if (is.null(x$gaps)) {cat("There were no gaps in the time series","\n") 
+	} else {
+	cat("The time series consists of",max(x$gaps$n),"continuous sub-series","\n")}
 
 }
 
@@ -169,7 +195,6 @@ IT <- function(h,             #Water level time series. data frame with time and
 {
 
 dry <- h[h$h<=(h0 + h0marg),][c("time","h")]
-# dry <- subset(h[c("time","h")],h<=(h0 + h0marg)) # not CRAN compatible
 
 if (dim(dry)[1] == 0) {		
 #If the site never falls dry, inundation time equals the time of the time series
@@ -178,8 +203,8 @@ if (dim(dry)[1] == 0) {
 } else 
 {
 
-wet <- h[h$h>(h0 + h0marg),][c("time","h")] 
-# wet <- subset(h[c("time","h")],h>(h0 + h0marg))	#dry time = 'inverse' of inundation time
+wet <- h[h$h>(h0 + h0marg),][c("time","h")] 		#dry time = 'inverse' of inundation time
+
 if (dim(wet)[1] == 0) {	
 #If the site is never inundated, dry time equals the time of the time series
   IT <- NULL	
@@ -202,6 +227,10 @@ if (dry$time[length(dry$time)] < h$time[length(h$time)]) {
 			dry <- rbind(dry,h[length(h$time),])
 			dry$time[length(dry$time)] <- dry$time[length(dry$time)] + unclass(difftime(h$time[2],h$time[1],units="secs"))
 			}
+# Calculate Inundation Time (IT) as the gaps in the DRY time series
+# Calculate Dry Time (DT) as the gaps in the WET time series
+# Sum of ITs and DTs should equal total length of time series
+
 
 IT <- gapsts(dry$time,dtMax,unit=unit)
 DT <- gapsts(wet$time,dtMax,unit=unit)

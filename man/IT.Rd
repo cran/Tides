@@ -15,6 +15,6 @@
   \item{IT }{Data frame with start time (t1), end time (t2) and duration (dt, unit = unit) of inundation}
   \item{DT }{Data frame with start time (t1), end time (t2) and duration (dt, unit = unit) of dry time}
 }
-\author{Tom Cox <tom.cox@ua.ac.be>}
+\author{Tom Cox <tom.cox@uantwerp.be>}
 \keyword{utilities}
 

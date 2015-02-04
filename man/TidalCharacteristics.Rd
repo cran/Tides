@@ -35,10 +35,10 @@
 \seealso{
 \code{\link{extrema}}, \code{\link{IT}}, \code{\link{plot.Tides}}
 }
-\author{Tom Cox <tom.cox@ua.ac.be>}
+\author{Tom Cox <tom.cox@uantwerp.be>}
 \keyword{utilities}
 \examples{
-TC <- TidalCharacteristics(waterlevels)
+TC <- TidalCharacteristics(waterlevels, filtconst=100,hoffset=5)
 TC
 plot(TC)
 }
