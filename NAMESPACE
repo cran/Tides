@@ -1,5 +1,6 @@
 export(extrema, gapsts, IF, IT,TidalCharacteristics)
 S3method(plot,Tides)
 S3method(print,Tides)
-
+importFrom("graphics", "lines", "plot", "points")
+importFrom("stats", "approx", "filter")
 

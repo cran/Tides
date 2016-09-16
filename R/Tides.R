@@ -217,7 +217,7 @@ if (wet$time[1] > h$time[1]) {
 			}
 if (wet$time[length(wet$time)] < h$time[length(h$time)]){
 			wet <- rbind(wet,h[length(h$time),])
-			wet$time[length(wet$time)] <- wet$time[length(wet$time)] + unclass(difftime(h$time[2],h$time[1],units="secs"))
+#			wet$time[length(wet$time)] <- wet$time[length(wet$time)] + unclass(difftime(h$time[2],h$time[1],units="secs"))
 			}
 if (dry$time[1] > h$time[1]) {
 			dry <- rbind(h[1,],dry)
@@ -225,15 +225,15 @@ if (dry$time[1] > h$time[1]) {
 			}
 if (dry$time[length(dry$time)] < h$time[length(h$time)]) {
 			dry <- rbind(dry,h[length(h$time),])
-			dry$time[length(dry$time)] <- dry$time[length(dry$time)] + unclass(difftime(h$time[2],h$time[1],units="secs"))
+#			dry$time[length(dry$time)] <- dry$time[length(dry$time)] + unclass(difftime(h$time[2],h$time[1],units="secs"))
 			}
 # Calculate Inundation Time (IT) as the gaps in the DRY time series
 # Calculate Dry Time (DT) as the gaps in the WET time series
 # Sum of ITs and DTs should equal total length of time series
 
 
-IT <- gapsts(dry$time,dtMax,unit=unit)
-DT <- gapsts(wet$time,dtMax,unit=unit)
+IT <- gapsts(dry$time,dtMax,unit=unit, shiftbegin=TRUE)
+DT <- gapsts(wet$time,dtMax,unit=unit, shiftbegin=TRUE)
 
 }
 }
