@@ -13,14 +13,15 @@
   \tabular{ll}{
     Package: \tab Tides\cr
     Type: \tab Package\cr
-    Version: \tab 1.0\cr
+    Version: \tab 2.0\cr
     License: \tab GNU Public License 2 or above\cr
   }
 
   
 }
 \author{
-  Tom Cox (maintainer, <tom.cox@uantwerp.be>)
+  Tom Cox (maintainer, <tom.cox@uantwerp.be>), 
+  Lennert Schepers (contributor, <lennert.schepers@uantwerp.be>)
 }
 %\references{
 %% to be filled

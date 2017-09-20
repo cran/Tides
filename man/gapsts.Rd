@@ -12,6 +12,6 @@
 \value{
   Data frame with the initial time, end time and time difference (unit = unit) of each interval > dtMax
 }
-\author{Tom Cox <tom.cox@uantwerp.be>}
+\author{Tom Cox <tom.cox@uantwerp.be>& Lennert Schepers <lennert.schepers@uantwerp.be>}
 \keyword{utilities}
 

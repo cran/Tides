@@ -4,3 +4,9 @@ Version 1.1
 
 Version 1.2
 2016-09-15 (Tom Cox) Minor bug fixed.
+
+Version 2.0
+2017-08-24 (Lennert Schepers and Tom Cox) Added summary.Tides
+2017-08-24 (Tom Cox and Lennert Schepers) Added RemoveGaps
+2017-08-24 (Lennert Schepers) Minor bugs fixed
+

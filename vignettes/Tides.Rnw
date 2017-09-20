@@ -7,11 +7,13 @@
 \usepackage{amsmath}
 \usepackage{natbib}
 \usepackage{Rd}
+\usepackage{xcolor}
 
 \author{Tom Cox}
 \title{Tides: characteristics of tidal water level time series.}
 
 \begin{document}
+\SweaveOpts{concordance=TRUE}
 \SweaveOpts{engine=R,eps=FALSE,png=TRUE,keep.source=T}
 <<echo=FALSE, include=FALSE>>=
 require(Tides)
@@ -29,7 +31,7 @@ Figure \ref{Fig1} shows a typical water level time series, recorded in 2007 in t
 \begin{center}
 <<label=TideFig1,fig=TRUE,echo=FALSE, width=12, height=6>>=
 
-plot(waterlevels$time,waterlevels$h,ylab="water level [mTAW]",type="l")
+plot(waterlevels$time,waterlevels$h,ylab="water level [cmTAW]", xlab="time", type="l", cex.lab=1.5, cex.axis=1.5, lwd=2) # changed units to cm TAW instead of mTAW
 lines(waterlevels$time,waterlevels$h0,col="grey")
 
 
@@ -53,9 +55,17 @@ h(t-\frac{T_{min}}{2}) < 	&h(t) > h(t+\frac{T_{min}}{2})
 \end{align}
 All maxima of the time series are then found by determining the maximum for each high water phase.
 
-If the time series is smooth, this algorithm will also work smoothly. Unfortunatly, observed water levels always feature small fluctuations. In such cases, the algorithm will generate spurious maxima in the low water phase. Two different approaches can be taken to deal with such fluctuations. First,  a small offset value could be defined, such that an observed water level is part of the high water phase only when it is higher than the water levels at time $T_{min}/2$ later and earlier \emph{plus} the offset value. The trade-off is that we loose the genuine high waters that are smaller than the offset value.
+If the time series is smooth, this algorithm will also work smoothly. Unfortunatly, observed water levels always feature small fluctuations. In such cases, the algorithm will generate spurious maxima in the low water phase. Two different approaches can be taken to deal with such fluctuations. First,  a small offset value could be defined (\texttt{hoffset}), such that an observed water level is part of the high water phase only when it is higher than the water levels at time $T_{min}/2$ later and earlier \emph{plus} the offset value: 
 
-Alternatively the observed data could be filtered (e.g. with a moving average filter), to remove small fluctuations. Also here, the trade-off is that some genuine high waters will be lost. Also, during long low water phases  (spanning multiple times T2) with a quasi constant water level and only random fluctuations, such filtering step will not prevent potential spurious maxima generation. 
+\begin{align}
+h(t-\frac{T_{min}}{2}) + \texttt{hoffset}   < 	&h(t) >   h(t+\frac{T_{min}}{2}) + \texttt{hoffset}
+\end{align}
+
+The trade-off is that we loose the genuine high waters that are smaller than the offset value.
+
+Alternatively the observed data could be filtered to remove small fluctuations. A movering average with width \texttt{filtconst} is used: \begin{verbatim}filter(h$h,rep(1/filtconst,filtconst))\end{verbatim}
+
+Also here, the trade-off is that some genuine high waters will be lost. Also, during long low water phases  (spanning multiple times T2) with a quasi constant water level and only random fluctuations, such filtering step will not prevent potential spurious maxima generation.
 
 Both approaches are implemented in \texttt{extrema()}.
 
@@ -72,7 +82,9 @@ wssub <- subset(waterlevels,time>date1&time<date2)
 HLsub <- subset(TCwl$HL,time>date1&time<date2)
 Hsub <- subset(HLsub,HL=="H")
 # as.POSIXct(diff(Hsub$time))
-plot(TCwl$h$time,TCwl$h$h,ylab="water level [mTAW]",type="l",xlim=c(date1,date2),ylim=c(280,360),axes=F)
+plot(TCwl$h$time,TCwl$h$h,ylab="water level [cmTAW]", xlab="time", 
+     type="l",xlim=c(date1,date2),ylim=c(280,360),axes=F, 
+     cex.lab=1.5, cex.axis=1.5, lwd=2) # cm!
 axis(2)
 days <- as.POSIXct(strptime(paste("2007-03-",1:31),format="%F"))
 axis.POSIXct(1,waterlevels$time,format="%a",at=days)
@@ -106,15 +118,15 @@ text(c(pt1$time,pt$time-60*60,pt2$time+2*60*60),c(pt1$h-5,pt$h,pt2$h),c("h(t-T/2
 The function \texttt{extrema()} performs the calculations described in the previous paragraph. It is the core of \texttt{TidalCharacteristics()}, which is more convenient as it returns further analysed and interpreted output, and is described in the following paragraph. 
 
 \begin{Usage}
-\begin{verbatim}extrema(h, h0, T2 = 5*60*60, hoffset = 3, filtconst = 1)\end{verbatim}
+\begin{verbatim}extrema(h, h0, T2 = 5*60*60, hoffset = 0, filtconst = 1)\end{verbatim}
 \end{Usage}
 \begin{Arguments}
 \begin{ldescription}
 \item[\code{h }] Water level time series. data frame with time and h column
 \item[\code{h0 }] Reference level, either single valued vector with dimension corresponding to h
 \item[\code{T2 }] 'Lower' bound on half the quasi period, but higher than expected stagnant phase; default = 5h
-\item[\code{hoffset}] Offset level, to prevent spurious maxima generation due to small fluctuations
-\item[\code{filtconst }] Filtering constant for smoothing the time series
+\item[\code{hoffset}] Offset level, to prevent spurious maxima generation due to small fluctuations. Default = 0 (no offset).
+\item[\code{filtconst }] Filtering constant for smoothing the time series with moving average filter. default = 1 (no smoothing)
 \end{ldescription}
 \end{Arguments}
 \begin{Value}
@@ -132,8 +144,9 @@ As an additional feature, the function also works on time series containing gaps
 
 \texttt{TidalCharacteristics()} in fact returns an object of class \texttt{Tides}, with an associated simple plotting method. See examples. 
 \begin{Usage}
-\begin{verbatim}TidalCharacteristics(h,h0 = h$h0,T2 = 5*60*60, hoffset = 3, filtconst = 1, 
-                     dtMax = 15,unit = "mins", Tavg = 12.4*60 ) 
+\begin{verbatim}TidalCharacteristics(h,h0 = h$h0,T2 = 5*60*60, hoffset = 0, filtconst = 1, 
+                     dtMax = 15,unit = "mins", Tavg = 12.4*60,
+                     removegaps = c("All", "Split", "None")) 
 TC <- TidalCharacteristics(h,...)\end{verbatim}
 \end{Usage}
 \begin{Arguments}
@@ -142,6 +155,7 @@ TC <- TidalCharacteristics(h,...)\end{verbatim}
 \item[\code{dtMax}] Maximum accepted time interval in a continuous series. Bigger time intervals are considered to be gaps
 \item[\code{unit}] Unit of dtMax, Tavg
 \item[\code{Tavg}] Average time difference between consecutive maxima in the time series, used to calculate inundation frequency.
+\item[\code{removegaps}] Method to remove gaps in time series from inundation times and dry times
 \end{ldescription}
 \end{Arguments}
 \begin{Value}
@@ -162,19 +176,30 @@ An object of class \code{Tides}, i.e. a list containing:
 \texttt{waterlevels} is the time series shown in Figure \ref{Fig1}, and is included in the package \texttt{Tides}. Simply applying \texttt{TidalCharacteristics} on \texttt{waterlevels} prints the characteristics of the time series.
 \begin{verbatim}
 > require(Tides)
-> TidalCharacteristics(waterlevels)
-Inundation frequency:		 57.62712  ( 34 inundations during time span) 
-Average inundation height:	 25.45507 
-Inundation time. 		Average: 306.1017 mins , Maximum:  2085 mins 
-Dry time. 			Average: 529 mins , Maximum 10200 mins 
-Time span:			 59 average (tidal) cycles 
-There were no gaps in the time series 
+> TidalCharacteristics(waterlevels, hoffset=3)
+Inundation frequency:  57.62712 
+Inundations during time span:  34 
+Average inundation height:  50.45294 
+Average inundation height (per cycle):  29.07458 
+Average inundation time:  425 mins 
+Average inundation time (per cycle):  230.5085 mins 
+Maximal inundation time:  2050 mins 
+Average dry time:  947.7273 mins 
+Average dry time (per cycle):  530.0847 mins 
+Maximal dry time:  10245 mins 
+Average high water:  340.2471 
+Average low water:  290.9743 
+Time span:  59 average (tidal) cycles 
+There were no gaps in the time series
+Warning message:
+In gapsts(wet$time, dtMax, unit = unit, shiftbegin = TRUE) :
+  First data point is beginning of gap. To shift t0, dt is estimated from next continuous series
 \end{verbatim}
 
 The resulting object is of class \texttt{Tides}, for which a simple plotting method exist. 
 
 \begin{verbatim}
-> TC <- TidalCharacteristics(waterlevels)
+> TC <- TidalCharacteristics(waterlevels, hoffset=3)
 > plot(TC)
 \end{verbatim}
 The resulting plot is shown in figure \ref{Fig3}. Mark that no maximum is generated at the 12th tidal cycle, with the default values of the filtering (i.e. an offset value of 3 cm and no filtering). When the function would be applied with \texttt{hoffset=0} and \texttt{filtconst=50} there would be a maximum detected during this period.
@@ -182,7 +207,7 @@ The resulting plot is shown in figure \ref{Fig3}. Mark that no maximum is genera
 \begin{center}
 <<label=TideFig3,fig=TRUE,echo=FALSE, width=12, height=6>>=
 
-plot(TidalCharacteristics(waterlevels))
+plot(TidalCharacteristics(waterlevels, hoffset=3), cex.lab=1.5, cex.axis=1.5, lwd=2)
 
 @
 \end{center}

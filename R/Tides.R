@@ -1,3 +1,40 @@
+
+#' @name TidalCharacteristics
+#' @aliases TidalCharacteristics
+#' @title Calculate tidal characteristics
+#' @description Calculates the characteristics of observed tidal water levels. Wrapper of the functions \code{\link{extrema}}, \code{\link{IT}} and \code{\link{IF}}. Also works on time series with gaps.
+#' @param h Water level time series. data frame with time and h column
+#' @param h0 Reference level, either single valued or vector with dimension corresponding to h
+#' @param T2 'Lower' bound on half the quasi period, but higher than expected stagnant phase; default = 5h
+#' @param hoffset Offset level, to prevent spurious maxima generation due to small fluctuations
+#' @param filtconst Filtering constant for smoothing the time series
+#' @param dtMax Maximum accepted time interval in a continuous series. Bigger time intervals are considered to be gaps
+#' @param unit Unit of dtMax, Tavg
+#' @param Tavg Average period of time series
+#' @param removegaps Method to remove gaps in time series from inundation times and dry times. See \code{\link{RemoveGaps}}
+#' @return An object of class \code{Tides}, i.e. a list containing:
+#' \itemize{
+#'  \item{HL}{Data frame with extrema}
+#'  \item{h }{original water level data frame with additional attributes}
+#'  \item{gaps}{a data frame containing start and end times of gaps in the series}
+#'  \item{IF}{inundation frequency of the reference level}
+#'  \item{ITs}{inundation times at the reference level}
+#'  \item{DTs}{dry times at the reference level}
+#'  \item{h0}{reference level}
+#'  \item{N}{Total number of cycles in time span}
+#' }
+#' @seealso \code{\link{extrema}}, \code{\link{IT}}, \code{\link{plot.Tides}}
+#' @author Tom Cox <tom.cox@uantwerp.be>, Lennert Schepers <lennert.schepers@uantwerp.be>
+#' @keywords utilities
+#' @examples 
+#' TC <- TidalCharacteristics(waterlevels, filtconst=10,hoffset=1)
+#'  TC
+#'  plot(TC)
+#'  summary(TC)
+
+
+
+
 TidalCharacteristics <- function (	h,  		#(Water level) time series. data frame with time and h column
 					h0 = h$h0, 	#Reference level, either single valued or vector with dimension corresponding to h
 					T2 = 5*60*60, 	#'Lower' bound on half the quasi period, but higher than expected stagnant phase; default = 5h
@@ -5,83 +42,146 @@ TidalCharacteristics <- function (	h,  		#(Water level) time series. data frame 
 					filtconst = 1,	#Filtering constant for smoothing the time series
 					dtMax = 15,	#maximum accepted time interval in a continuous series. Bigger time intervals are considered to be gaps
 					unit = "mins",  # unit of dtMax, Tavg
-					Tavg = 12.4*60) #Average period of tidal cycle 
+					Tavg = 12.4*60, #Average period of tidal cycle 
+          removegaps = c("All", "Split", "None"))
 {
+removegaps <- match.arg(removegaps)
 if (any(!is.element("time",names(h)))) stop("h must be a data frame with columns time (POSIXt) and h (numeric)")
 if (!is.element("POSIXt",class(h$time[1]))) stop("h must be a data frame with columns time (POSIXt) and h (numeric)")
 if (is.null(h0)) stop("provide reference level h0")
 
 #Calculate high and low water levels (extrema) in water level time series
-output <- extrema(h=h,h0=h0,T2 = T2,filtconst=filtconst, hoffset = hoffset)
+output <- extrema(h=h,h0=h0,T2 = T2,filtconst=filtconst, hoffset=hoffset)
 HL <- output$HL
 tij <- output$h
 
 ###
 #determine gaps in 'continuous' data
-gaps <- gapsts(tij$time,dtMax=dtMax)
-if (!is.null(gaps)) 	{gaps$N <- tij$N[match(gaps$t1,tij$time)]	#N counts the tidal cycles
+gaps <- gapsts(tij$time,dtMax=dtMax, shiftbegin=TRUE)
+if (!is.null(gaps)) 	{gaps$N <- tij$N[match(gaps$t1,tij$time)]	# gaps$N is tidal phase at which gap starts 
 			tij$n <- findInterval(tij$time,gaps$t2)+1	#n counts the continuous series of cycles.	
 } else tij$n <- 1
 
 ###
-#Calculate inundation times and dry times
-ITDT <- IT(tij[c("time","h")],h0=tij$h0,dtMax=dtMax, h0marg=hoffset)
+# Calculate inundation times and dry times
+# The functions IT and DT will determine the parts of the time series that the waterlevel is above or below the reference level
+# It does not take care of potential gaps in the series. That will be done in the next step
+
+ITDT <- IT(tij[c("time","h")],h0=tij$h0,dtMax=dtMax, hoffset = hoffset)
 ITs <- ITDT$IT
-if (!is.null(ITs)) ITs$N <- tij$N[match(ITs$t1,tij$time)]
-#When gaps are present in the time series, remove all broken cycles +- 1 cycle number to be sure, i.e. in which a gap of data exists
-if (!is.null(gaps)) ITs <- ITs[!is.element(ITs$N, c(gaps$N-1,gaps$N,gaps$N+1)),]
+if (!is.null(ITs)) ITs$N <- tij$N[match(ITs$t1,tij$time)] # ITs$N = tidal phase at which inundation starts
   
 DTs <- ITDT$DT
-if (!is.null(DTs)) DTs$N <- tij$N[match(DTs$t1,tij$time)]
-#When gaps are present in the time series, remove all broken cycles +- 1 cycle number to be sure
-if (!is.null(gaps)) DTs <- DTs[!is.element(DTs$N,gaps$N)&!is.element(DTs$N,gaps$N+1)&!is.element(DTs$N,gaps$N - 1),]
+if (!is.null(DTs)) DTs$N <- tij$N[match(DTs$t1,tij$time)] # DTs$N = tidal phase at which dry time starts
+
+
+#
+# Remove gaps from ITs and DTs
+#
+
+#
+# OLD CODE
+#
+
+# When gaps are present in the time series, remove all broken cycles +- 1 cycle number to be sure, i.e. in which a gap of data exists
+# if (!is.null(gaps)) {
+#  ITs <- ITs[!is.element(ITs$N, c(gaps$N-1,gaps$N,gaps$N+1)),]
+#  DTs <- DTs[!is.element(DTs$N,gaps$N)&!is.element(DTs$N,gaps$N+1)&!is.element(DTs$N,gaps$N - 1),]
+#} 
+
+if (!is.null(gaps)) {
+  ITs <- RemoveGaps(gaps, ivals=ITs, method=removegaps)
+  DTs <- RemoveGaps(gaps, ivals=DTs, method=removegaps)
+      
+} 
+
+
+
+# ADDED Lennert Schepers:
+#---------------
+# the code above assumes that 1 inundation/dry period lasts only  tide!
+# solution: delete time of gaps +-1N from inundation/dry period
+
+# if (!is.null(gaps)) { 
+# if(!is.null(DTs)) DTs <- CutExtendedGaps(tij=tij, gaps=gaps, ivals=DTs)
+# if(!is.null(ITs)) ITs <- CutExtendedGaps(tij=tij, gaps=gaps, ivals=ITs)
+# }
+
+
+#--------------------
+# ADDED
+# number of tidal phases that are removed for the gaps:
+# unique() to remove doubles by possible successive gaps
+# the first and last measurement are mostly(?) part of a separate tidal phase, so delete these 2
+# we check if these are part of the deleted gaps phases: 1 and last are included in unique())
+if(is.null(gaps)) Ndel <- 2 else Ndel <- length(unique(c(gaps$N-1,gaps$N,gaps$N+1, 1, max(tij$N))))
+
 
 ###
 #Calculate total inundation frequence
 if (is.null(gaps)) gapstime <- 0 else gapstime <- sum(unclass(gaps$dt))
-Ncycles <- floor(unclass(difftime(max(tij$time,na.rm=T),min(tij$time,na.rm=T),units="mins") - gapstime)/(Tavg))[1]
+
+# Remark! Ncycles is calculated by dividing No gaps time/ Tavg(=input in function!) better to calculate the number of cycles?
+# total tidal cycles = (total phases - removed phases for gaps -2) / 2
+# two phases: H, L -> 1 tidal cycle (H is the full high water phase, L is the full low water phase, not only from HW to LW!)
+# n phases -> n/2 tidal cycles
+# delete first and last (incomplete) tidal stage (first and last point are separate cycle)
+Ncycles <- (max(tij$N) - 2)/ 2
+Nfullcycles <- (max(tij$N) - Ndel)/ 2 #counted by the number of full phases that are not deleted for gaps
+
+# Ncycles <- floor(unclass(difftime(max(tij$time,na.rm=T),min(tij$time,na.rm=T),units="mins") - gapstime)/(Tavg))[1]
 IF <- IF(HL[HL$HL=="H",]$h,HL[HL$HL=="H",]$h0,N=Ncycles)
 
 
-TideChars <- list(HL=HL,h=tij,gaps=gaps,IF=IF,ITs=ITs,DTs=DTs,h0 = h0,Ncycles=Ncycles,Tunit=unit)
+TideChars <- list(HL=HL,h=tij,gaps=gaps,IF=IF,ITs=ITs,DTs=DTs,h0 = h0,Ncycles=Ncycles,Nfullcycles = Nfullcycles, Tunit=unit)
 class(TideChars) <- "Tides" 
 return(TideChars)
 }
 
+#
+# END TidalCharacteristics
+#
+
+
 print.Tides <- function(x,...){
   if (is.null(x$DTs$dt)) {cat("Inundation frequency: 100% \n") 
-	} else {
-	cat("Inundation frequency: ", x$IF, "\n")
-	cat("Inundations during time span: ", x$IF*x$Ncycles/100, "\n")}
-
+  } else {
+    cat("Inundation frequency: ", x$IF, "\n")
+    cat("Inundations during time span: ", x$IF*x$Ncycles/100, "\n")}
+  
   if (is.null(x$DTs$dt)) {cat ("WARNING not reliable (IF = 100%). Average inundation height: ", mean(x$HL$h-x$HL$h0),"\n") 
-	} else {
-	cat("Average inundation height: ", mean(x$HL$h[x$HL$HL=="H"]-x$HL$h0[x$HL$HL=="H"]),"\n")
-	cat("Average inundation height (per cycle): ", sum(x$HL$h[x$HL$HL=="H"]-x$HL$h0[x$HL$HL=="H"])/x$Ncycles,"\n")}
-
+  } else {
+    cat("Average inundation height: ", mean(x$HL$h[x$HL$HL=="H"]-x$HL$h0[x$HL$HL=="H"]),"\n")
+    cat("Average inundation height (per cycle): ", sum(x$HL$h[x$HL$HL=="H"]-x$HL$h0[x$HL$HL=="H"])/x$Ncycles,"\n")}
+  
   if (is.null(x$ITs$dt)) {cat ("Average inundation time: Site never inundated \n") 
-	} else {
-	cat("Average inundation time: ", mean(x$ITs$dt), x$Tunit, "\n") 
-	cat("Average inundation time (per cycle): ", sum(x$ITs$dt)/x$Ncycles, x$Tunit, "\n") 
-	cat("Maximal inundation time: ", max(x$ITs$dt), x$Tunit, "\n")
-	}
-
-
+  } else {
+    cat("Average inundation time: ", mean(x$ITs$dt), x$Tunit, "\n") 
+    cat("Average inundation time (per cycle): ", sum(x$ITs$dt)/x$Nfullcycles, x$Tunit, "\n") # changed to Nfullcycles
+    cat("Maximal inundation time: ", max(x$ITs$dt), x$Tunit, "\n")
+  }
+  
+  
   if (is.null(x$DTs$dt)) {cat ("Average dry time: Site never falls dry \n") 
-	} else {  
-	cat("Average dry time: ", mean(x$DTs$dt), x$Tunit, "\n")
-	cat("Average dry time (per cycle): ", sum(x$DTs$dt)/x$Ncycles, x$Tunit, "\n")
-	cat("Maximal dry time: ", max(x$DTs$dt), x$Tunit, "\n")}
+  } else {  
+    cat("Average dry time: ", mean(x$DTs$dt), x$Tunit, "\n")
+    cat("Average dry time (per cycle): ", sum(x$DTs$dt)/x$Nfullcycles, x$Tunit, "\n") # changed to Nfullcycles
+    cat("Maximal dry time: ", max(x$DTs$dt), x$Tunit, "\n")}
   
   cat("Average high water: ", mean(x$HL$h[x$HL$HL=="H"]),"\n")
   cat("Average low water: ", mean(x$HL$h[x$HL$HL=="L"]),"\n")
   
-  cat("Time span: ", x$Ncycles, "average (tidal) cycles","\n")
-
+  # ADJUSTED: Ncycles is based on arbitrary Tavg (=input data??)
+  # I changed the calculation of Ncycles, see TidalCharacteristics()
+  cat("Time span: ", x$Ncycles, "tidal cycles","\n")                           # calculation changed!
+  cat("Continuous time span: ", x$Nfullcycles, " full tidal cycles","\n")        # ADDED
+  
   if (is.null(x$gaps)) {cat("There were no gaps in the time series","\n") 
-	} else {
-	cat("The time series consists of",max(x$gaps$n),"continuous sub-series","\n")}
-
+  } else {
+    # ADJUSTED! number of continuous series is not x$gaps$n(=number of gaps),
+    # but x$h$n
+    cat("The time series consists of",max(x$h$n),"continuous sub-series","\n")}
+  
 }
 
 plot.Tides <- function(x,...){
@@ -158,43 +258,35 @@ return(list(HL = HL[c("time","h","HL","h0")], 		# Data frame with extrema
               )
 }
 
-gapsts <- function(ts,            	# array of times, consisting of different continuous subseries seperated by large gaps
-                    dtMax,        	# maximum time interval in a continuous series, or equivalently minimum interval to be characterized as gap.
-                    unit = "mins"  	# unit of dtMax; used when ts belongs to class POSIXt
-                    )
-{
 
-if (!inherits(ts,"POSIXt")){
-timediffs <- ts[1:(length(ts)-1)] - ts[2:(length(ts))]
-} else {
-timediffs <- difftime(ts[1:(length(ts)-1)], ts[2:(length(ts))],units=unit)
-}
+#' @name IT
+#' @aliases IT
+#' @title Inundation time
+#' @description Calculate inundation times, i.e. time intervals for which water level h > h0. Care must be taken when there are gaps (long time periods for which there is no data )in the time series. Either the erroneous values have to removed manually, or a wrapper making use of the function gapsts can be used.
+# \usage{IT(h, h0, h0marg = 0.3, dtMax, unit = "mins")}
+#' @param h Water level time series. data frame with time and h column
+#' @param h0 Reference level, either single valued or vector with same length as h
+#' @param hoffset Offset level to cope with small fluctuations due to rain, ripples. h <= h0 + hoffset is considered dry; h> h0+hoffset is considered wet
+#' @param dtMax Maximum time interval in continuous water level series. Larger time intervals are considered gaps
+#' @param unit Unit of dtMax. 
+#' @return  a list containing:
+#' \itemize{
+#'    \item{IT }{Data frame with start time (t1), end time (t2) and duration (dt, unit = unit) of inundation}
+#'    \item{DT }{Data frame with start time (t1), end time (t2) and duration (dt, unit = unit) of dry time}
+#' }
+#' @author Tom Cox <tom.cox@uantwerp.be>
+#' @keywords utilities
 
-if (!any(timediffs < - dtMax)) return(NULL)
-#Select gaps > dtMax in a timeseries ts
-gaps <- ts[c(timediffs < -dtMax,F)]
-gaps <- data.frame(t1 = gaps)
-gaps$t2 <- ts[match(gaps$t1,ts)  + 1]
-gaps$n <- 1:dim(gaps)[1]
-
-if (!inherits(ts,"POSIXt")){
-gaps$dt <- gaps$t2 - gaps$t1
-} else {
-gaps$dt <- difftime(gaps$t2,gaps$t1,units=unit)
-}
-
-return(gaps) #Data frame with the initial time, end time and time difference (unit = unit) of each interval > dtMax
-}
 
 IT <- function(h,             #Water level time series. data frame with time and h column
                 h0,           #Reference level, either single valued or vector with same length as h
-                h0marg = 0.3, #Margin on reference level, to cope with small fluctuations in the Water level time series
+                hoffset = 0,  #Margin on reference level, to cope with small fluctuations in the Water level time series
                 dtMax = 15,   #Maximum time interval in continuous water level series
                 unit = "mins"  #Unit of dtMax and output time intervals
                 )
 {
 
-dry <- h[h$h<=(h0 + h0marg),][c("time","h")]
+dry <- h[h$h<=(h0 + hoffset),][c("time","h")]
 
 if (dim(dry)[1] == 0) {		
 #If the site never falls dry, inundation time equals the time of the time series
@@ -203,7 +295,7 @@ if (dim(dry)[1] == 0) {
 } else 
 {
 
-wet <- h[h$h>(h0 + h0marg),][c("time","h")] 		#dry time = 'inverse' of inundation time
+wet <- h[h$h>(h0 + hoffset),][c("time","h")] 		#dry time = 'inverse' of inundation time
 
 if (dim(wet)[1] == 0) {	
 #If the site is never inundated, dry time equals the time of the time series
@@ -231,12 +323,25 @@ if (dry$time[length(dry$time)] < h$time[length(h$time)]) {
 # Calculate Dry Time (DT) as the gaps in the WET time series
 # Sum of ITs and DTs should equal total length of time series
 
-
+gaps <- gapsts(h$time, dtMax, unit=unit, shiftbegin=TRUE) 
 IT <- gapsts(dry$time,dtMax,unit=unit, shiftbegin=TRUE)
 DT <- gapsts(wet$time,dtMax,unit=unit, shiftbegin=TRUE)
 
+# remove gaps that are erroneously detected as dry or wet times
+for (gapi in 1:length(gaps[,1])){
+  IT <- IT[!(IT$t1==gaps$t1[gapi]&IT$t2==gaps$t2[gapi]),]
+  DT <- DT[!(DT$t1==gaps$t1[gapi]&DT$t2==gaps$t2[gapi]),]
+}
+# ADJUSTED
+# The IT or DT (one of both) will start with a gap by default, so suppress the warnings
+IT <- suppressWarnings(gapsts(dry$time,dtMax,unit=unit, shiftbegin=TRUE))
+DT <- suppressWarnings(gapsts(wet$time,dtMax,unit=unit, shiftbegin=TRUE))
+
+
 }
 }
+
+
 
 return(list(IT = IT,     #Data frame with start time (t1), end time (t2) and duration (dt, unit = unit) of inundation
             DT = DT))    #Data frame with start time (t1), end time (t2) and duration (dt, unit = unit) of dry time

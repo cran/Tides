@@ -1,7 +1,7 @@
 ### R code from vignette source 'Tides.Rnw'
 
 ###################################################
-### code chunk number 1: Tides.Rnw:16-17
+### code chunk number 1: Tides.Rnw:18-19
 ###################################################
 require(Tides)
 
@@ -10,7 +10,7 @@ require(Tides)
 ### code chunk number 2: TideFig1
 ###################################################
 
-plot(waterlevels$time,waterlevels$h,ylab="water level [mTAW]",type="l")
+plot(waterlevels$time,waterlevels$h,ylab="water level [cmTAW]", xlab="time", type="l", cex.lab=1.5, cex.axis=1.5, lwd=2) # changed units to cm TAW instead of mTAW
 lines(waterlevels$time,waterlevels$h0,col="grey")
 
 
@@ -29,7 +29,9 @@ wssub <- subset(waterlevels,time>date1&time<date2)
 HLsub <- subset(TCwl$HL,time>date1&time<date2)
 Hsub <- subset(HLsub,HL=="H")
 # as.POSIXct(diff(Hsub$time))
-plot(TCwl$h$time,TCwl$h$h,ylab="water level [mTAW]",type="l",xlim=c(date1,date2),ylim=c(280,360),axes=F)
+plot(TCwl$h$time,TCwl$h$h,ylab="water level [cmTAW]", xlab="time", 
+     type="l",xlim=c(date1,date2),ylim=c(280,360),axes=F, 
+     cex.lab=1.5, cex.axis=1.5, lwd=2) # cm!
 axis(2)
 days <- as.POSIXct(strptime(paste("2007-03-",1:31),format="%F"))
 axis.POSIXct(1,waterlevels$time,format="%a",at=days)
@@ -55,7 +57,7 @@ text(c(pt1$time,pt$time-60*60,pt2$time+2*60*60),c(pt1$h-5,pt$h,pt2$h),c("h(t-T/2
 ### code chunk number 4: TideFig3
 ###################################################
 
-plot(TidalCharacteristics(waterlevels))
+plot(TidalCharacteristics(waterlevels, hoffset=3), cex.lab=1.5, cex.axis=1.5, lwd=2)
 
 
 
