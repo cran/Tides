@@ -1,4 +1,4 @@
-export(extrema, gapsts, IF, IT,TidalCharacteristics)
+export(extrema, gapsts, IF, IT,TidalCharacteristics, RemoveGaps)
 S3method(plot,Tides)
 S3method(print,Tides)
 S3method(summary,Tides)

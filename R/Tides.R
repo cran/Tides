@@ -90,9 +90,11 @@ if (!is.null(DTs)) DTs$N <- tij$N[match(DTs$t1,tij$time)] # DTs$N = tidal phase 
 #} 
 
 if (!is.null(gaps)) {
-  ITs <- RemoveGaps(gaps, ivals=ITs, method=removegaps)
-  DTs <- RemoveGaps(gaps, ivals=DTs, method=removegaps)
-      
+  ITs_nogaps <- RemoveGaps(gaps, ivals=ITs, method=removegaps)
+  ITs <- cbind(ITs_nogaps, ITs[match(ITs_nogaps$t1, ITs$t1), c("n", "dt", "N")])
+  DTs_nogaps <- RemoveGaps(gaps, ivals=DTs, method=removegaps)
+  DTs <- cbind(DTs_nogaps, DTs[match(DTs_nogaps$t1, DTs$t1), c("n", "dt", "N")])
+  
 } 
 
 
@@ -121,19 +123,24 @@ if(is.null(gaps)) Ndel <- 2 else Ndel <- length(unique(c(gaps$N-1,gaps$N,gaps$N+
 #Calculate total inundation frequence
 if (is.null(gaps)) gapstime <- 0 else gapstime <- sum(unclass(gaps$dt))
 
+t_total_mins <- difftime(max(tij$time,na.rm=T),min(tij$time,na.rm=T),units="mins")
+t_observations_mins <- unclass(t_total_mins - gapstime)
+
+N_observations <- floor(t_observations_mins/(Tavg))[1]
+
+
 # Remark! Ncycles is calculated by dividing No gaps time/ Tavg(=input in function!) better to calculate the number of cycles?
 # total tidal cycles = (total phases - removed phases for gaps -2) / 2
 # two phases: H, L -> 1 tidal cycle (H is the full high water phase, L is the full low water phase, not only from HW to LW!)
 # n phases -> n/2 tidal cycles
 # delete first and last (incomplete) tidal stage (first and last point are separate cycle)
-Ncycles <- (max(tij$N) - 2)/ 2
-Nfullcycles <- (max(tij$N) - Ndel)/ 2 #counted by the number of full phases that are not deleted for gaps
+N_inundations <- (max(tij$N) - 2)/ 2
+N_full_inundations <- (max(tij$N) - Ndel)/ 2 #counted by the number of full phases that are not deleted for gaps
 
-# Ncycles <- floor(unclass(difftime(max(tij$time,na.rm=T),min(tij$time,na.rm=T),units="mins") - gapstime)/(Tavg))[1]
-IF <- IF(HL[HL$HL=="H",]$h,HL[HL$HL=="H",]$h0,N=Ncycles)
+IF <- IF(HL[HL$HL=="H",]$h,HL[HL$HL=="H",]$h0,N=N_observations)
 
 
-TideChars <- list(HL=HL,h=tij,gaps=gaps,IF=IF,ITs=ITs,DTs=DTs,h0 = h0,Ncycles=Ncycles,Nfullcycles = Nfullcycles, Tunit=unit)
+TideChars <- list(HL=HL,h=tij,gaps=gaps,IF=IF,ITs=ITs,DTs=DTs,h0 = h0, t_total_mins = t_total_mins, t_observations_mins = t_observations_mins, N_observations = N_observations, N_inundations=N_inundations,N_full_inundations = N_full_inundations, Tunit=unit)
 class(TideChars) <- "Tides" 
 return(TideChars)
 }
@@ -147,17 +154,17 @@ print.Tides <- function(x,...){
   if (is.null(x$DTs$dt)) {cat("Inundation frequency: 100% \n") 
   } else {
     cat("Inundation frequency: ", x$IF, "\n")
-    cat("Inundations during time span: ", x$IF*x$Ncycles/100, "\n")}
+    cat("Inundations during time span: ", x$N_inundations, "\n")}
   
   if (is.null(x$DTs$dt)) {cat ("WARNING not reliable (IF = 100%). Average inundation height: ", mean(x$HL$h-x$HL$h0),"\n") 
   } else {
     cat("Average inundation height: ", mean(x$HL$h[x$HL$HL=="H"]-x$HL$h0[x$HL$HL=="H"]),"\n")
-    cat("Average inundation height (per cycle): ", sum(x$HL$h[x$HL$HL=="H"]-x$HL$h0[x$HL$HL=="H"])/x$Ncycles,"\n")}
+    cat("Average inundation height (per cycle): ", sum(x$HL$h[x$HL$HL=="H"]-x$HL$h0[x$HL$HL=="H"])/x$N_inundations,"\n")}
   
   if (is.null(x$ITs$dt)) {cat ("Average inundation time: Site never inundated \n") 
   } else {
     cat("Average inundation time: ", mean(x$ITs$dt), x$Tunit, "\n") 
-    cat("Average inundation time (per cycle): ", sum(x$ITs$dt)/x$Nfullcycles, x$Tunit, "\n") # changed to Nfullcycles
+    cat("Average inundation time (per cycle): ", sum(x$ITs$dt)/x$N_full_inundations, x$Tunit, "\n") # changed to Nfullcycles
     cat("Maximal inundation time: ", max(x$ITs$dt), x$Tunit, "\n")
   }
   
@@ -165,7 +172,7 @@ print.Tides <- function(x,...){
   if (is.null(x$DTs$dt)) {cat ("Average dry time: Site never falls dry \n") 
   } else {  
     cat("Average dry time: ", mean(x$DTs$dt), x$Tunit, "\n")
-    cat("Average dry time (per cycle): ", sum(x$DTs$dt)/x$Nfullcycles, x$Tunit, "\n") # changed to Nfullcycles
+    cat("Average dry time (per cycle): ", sum(x$DTs$dt)/x$N_full_inundations, x$Tunit, "\n") # changed to Nfullcycles
     cat("Maximal dry time: ", max(x$DTs$dt), x$Tunit, "\n")}
   
   cat("Average high water: ", mean(x$HL$h[x$HL$HL=="H"]),"\n")
@@ -173,8 +180,10 @@ print.Tides <- function(x,...){
   
   # ADJUSTED: Ncycles is based on arbitrary Tavg (=input data??)
   # I changed the calculation of Ncycles, see TidalCharacteristics()
-  cat("Time span: ", x$Ncycles, "tidal cycles","\n")                           # calculation changed!
-  cat("Continuous time span: ", x$Nfullcycles, " full tidal cycles","\n")        # ADDED
+  cat("Time span: ", x$t_total_mins/60/24, " days","\n")                
+  cat("Observations in time span: ", x$t_observations_mins/60/24, " days or ", x$N_observations, " average tidal cycles" ,"\n")
+  cat("Inundations in time span: ", floor(x$N_inundations), "tidal cycles", "\n")
+  cat("Fully observed inundated tidal cycles: ", floor(x$N_full_inundations), " full tidal cycles","\n")        # ADDED
   
   if (is.null(x$gaps)) {cat("There were no gaps in the time series","\n") 
   } else {
@@ -327,11 +336,14 @@ gaps <- gapsts(h$time, dtMax, unit=unit, shiftbegin=TRUE)
 IT <- gapsts(dry$time,dtMax,unit=unit, shiftbegin=TRUE)
 DT <- gapsts(wet$time,dtMax,unit=unit, shiftbegin=TRUE)
 
+if (!is.null(gaps)){
 # remove gaps that are erroneously detected as dry or wet times
 for (gapi in 1:length(gaps[,1])){
   IT <- IT[!(IT$t1==gaps$t1[gapi]&IT$t2==gaps$t2[gapi]),]
   DT <- DT[!(DT$t1==gaps$t1[gapi]&DT$t2==gaps$t2[gapi]),]
 }
+}
+
 # ADJUSTED
 # The IT or DT (one of both) will start with a gap by default, so suppress the warnings
 IT <- suppressWarnings(gapsts(dry$time,dtMax,unit=unit, shiftbegin=TRUE))

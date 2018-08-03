@@ -25,7 +25,7 @@ gapsts <- function(ts,            	# array of times, consisting of different con
     
     t1_i <- match(gaps$t1, ts)
     if (t1_i[1] == 1){
-      t1_i[1] <- which(Mod(timediffs) < dtMax)[1] + 1 # ADJUSTED! # 3
+      t1_i[1] <- which(Mod(timediffs) <= dtMax)[1] + 1 # ADJUSTED! # 3
       # if first data point is beginning of gap, dt cannot be estimated from the former continuous series, but is estimated from the next continuous series
       # ADJUSTED! it's also possible that the second difftime > dtMax!
       # take the first difftime < dtMax (+1, since in the next step one is subtracted)
